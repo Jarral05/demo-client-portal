@@ -2,6 +2,12 @@
 
 All notable changes are recorded here, in [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.0.1] - 2026-11-05
+
+### Fixed
+
+- The screens now build during install, because Hostinger's Express setup has no Build command field.
+
 ## [1.0.0] - 2026-11-05
 
 ### Added
