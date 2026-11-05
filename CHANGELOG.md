@@ -2,6 +2,12 @@
 
 All notable changes are recorded here, in [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.0.3] - 2026-11-05
+
+### Changed
+
+- README: live demo link and screenshot at the top, and how AI tools are used.
+
 ## [1.0.2] - 2026-11-05
 
 ### Fixed

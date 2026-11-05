@@ -1,6 +1,10 @@
 # Client portal demo
 
+**[Try the live demo](https://portal-demo.jarraldigital.com)**, no sign-up needed.
+
 A working client portal built with the MERN stack: MongoDB, Express, React and Node.
+
+![Access check page: seven attempts to reach data the account must not see, all blocked](docs/access-check.png)
 
 **This is a demo, not a real client's project.** Every company, person and figure in it is made up.
 
@@ -100,4 +104,4 @@ tests/                 automated tests
 
 ## Built by
 
-[Jarral Digital](https://jarraldigital.com/agencies/), who build web apps and WordPress sites for agencies, under the agency's brand.
+[Jarral Digital](https://jarraldigital.com/agencies/), who build web apps and WordPress sites for agencies, under the agency's brand. We use AI tools, including Claude Code, to build faster, and we treat what they write as a draft: see the tests.
