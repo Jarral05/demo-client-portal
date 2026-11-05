@@ -2,6 +2,13 @@
 
 All notable changes are recorded here, in [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.0.2] - 2026-11-05
+
+### Fixed
+
+- The app now starts on hosts that load the entry file with `require()`. Top-level await prevented that.
+- Clearer startup messages in the log, including why a start failed.
+
 ## [1.0.1] - 2026-11-05
 
 ### Fixed

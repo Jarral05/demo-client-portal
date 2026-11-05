@@ -1,5 +1,6 @@
 // Tests what must NOT happen as well as what should.
 // A portal can pass every normal test and still show one client another client's files.
+import { spawn } from 'node:child_process';
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
@@ -393,6 +394,41 @@ test('a client can download their own files as real PDFs', async () => {
     assert.equal(res.headers['content-type'], 'application/pdf');
     assert.equal(res.body.subarray(0, 4).toString(), '%PDF');
   }
+});
+
+// ---- Starting up ----
+
+test('the app starts when the host loads it with require()', async () => {
+  // Some hosts load the entry file this way. Top-level await anywhere would stop the app starting.
+  const child = spawn(process.execPath, ['-e', "require('./server.js')"], {
+    env: {
+      ...process.env,
+      NODE_ENV: 'production',
+      MONGODB_URI: memory.getUri('startup'),
+      SESSION_SECRET: 'test-only',
+      PUBLIC_URL: 'https://portal.example',
+      PORT: '3987',
+    },
+  });
+  let output = '';
+  child.stdout.on('data', (chunk) => { output += chunk; });
+  child.stderr.on('data', (chunk) => { output += chunk; });
+
+  const started = await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), 30000);
+    child.stdout.on('data', () => {
+      if (output.includes('listening on port 3987')) {
+        clearTimeout(timer);
+        resolve(true);
+      }
+    });
+    child.on('exit', () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+  });
+  child.kill();
+  assert.equal(started, true, output);
 });
 
 // ---- The Access check page ----

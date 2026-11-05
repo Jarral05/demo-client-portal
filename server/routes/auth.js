@@ -10,7 +10,7 @@ import { DEFAULT_BRAND, PERSONAS, SAMPLE_PASSWORD } from '../lib/sampleData.js';
 export const authRoutes = Router();
 
 // Compared when no such user exists, so a wrong email takes as long as a wrong password.
-const NO_USER_HASH = await bcrypt.hash('no-such-user', 10);
+const noUserHash = bcrypt.hash('no-such-user', 10);
 const BAD_LOGIN = { error: 'That email and password do not match.' };
 
 function regenerate(session) {
@@ -31,7 +31,7 @@ authRoutes.post('/login', loginLimiter, sandboxLimiter, async (req, res) => {
   }
 
   const user = await User.findOne({ workspaceId, email });
-  const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? NO_USER_HASH);
+  const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? (await noUserHash));
   if (!user || !passwordOk) return res.status(401).json(BAD_LOGIN);
 
   // A new session ID at login, so an ID planted before login is useless afterwards.
