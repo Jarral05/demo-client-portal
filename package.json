@@ -1,0 +1,41 @@
+{
+  "name": "demo-client-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A demo MERN client portal with made-up sample data. Shows login, roles and client-by-client access control.",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web \"node --watch server.js\" \"vite\"",
+    "build": "vite build",
+    "start": "node server.js",
+    "test": "node --test \"tests/*.test.js\""
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "bcryptjs": "^3.0.3",
+    "connect-mongo": "^6.0.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
+    "lucide-react": "^1.69.0",
+    "mongoose": "^9.12.0",
+    "pdfkit": "^0.20.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router": "^8.5.1",
+    "vite": "^8.3.6",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6",
+    "mongodb-memory-server-core": "^11.3.0",
+    "supertest": "^7.3.1"
+  }
+}

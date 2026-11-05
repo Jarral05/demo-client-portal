@@ -1,0 +1,47 @@
+// One small wrapper for talking to the server.
+import { useCallback, useEffect, useState } from 'react';
+
+export class ApiError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// App.jsx listens for this, and returns to the login page when a session ends.
+export const SESSION_ENDED = 'portal:session-ended';
+
+export async function api(path, { method = 'GET', body } = {}) {
+  const response = await fetch(`/api${path}`, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event(SESSION_ENDED));
+    throw new ApiError(response.status, data.error || 'Something went wrong. Please try again.');
+  }
+  return data;
+}
+
+// Loads data for a page. Call reload() after changing something.
+export function useApi(path) {
+  const [state, setState] = useState({ data: null, error: null, loading: true });
+
+  const reload = useCallback(async () => {
+    try {
+      const data = await api(path);
+      setState({ data, error: null, loading: false });
+    } catch (error) {
+      setState({ data: null, error, loading: false });
+    }
+  }, [path]);
+
+  useEffect(() => {
+    setState({ data: null, error: null, loading: true });
+    reload();
+  }, [reload]);
+
+  return { ...state, reload };
+}
