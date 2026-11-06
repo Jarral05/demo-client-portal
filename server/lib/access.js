@@ -20,10 +20,15 @@ export function scope(user, extra = {}) {
 }
 
 export function audit(req, action, summary, clientId) {
+  return auditFor(req.user, action, summary, clientId);
+}
+
+// For events where nobody is signed in yet, such as asking for a reset link.
+export function auditFor(user, action, summary, clientId) {
   return AuditEvent.create({
-    workspaceId: req.user.workspaceId,
-    expiresAt: req.user.expiresAt,
-    actorName: req.user.name,
+    workspaceId: user.workspaceId,
+    expiresAt: user.expiresAt,
+    actorName: user.name,
     action,
     summary,
     clientId,

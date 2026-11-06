@@ -244,6 +244,34 @@ tr:last-child td { border-bottom: 0; }
 .login-form h2 { margin: 0; }
 .login-form .button { align-self: flex-start; }
 
+/* Pages outside the app frame: reset, invitation, signed-out inbox */
+.public-page { max-width: 520px; margin: 0 auto; padding: 48px 20px 64px; }
+.public-page-wide { max-width: 760px; }
+.public-page h1 { margin-bottom: 4px; }
+
+/* Demo inbox */
+.mail h2 { margin: 6px 0 8px; }
+.mail-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mail .button { display: inline-block; text-decoration: none; margin-top: 4px; }
+
+/* Security */
+.qr { display: block; border: 1px solid var(--line); border-radius: 8px; }
+.codes { display: grid; grid-template-columns: repeat(2, max-content); gap: 6px 18px; margin: 0; padding-left: 20px; }
+.codes code { font-size: 14px; }
+
+/* People */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.form-grid select { width: 100%; font-size: 15px; padding: 8px 10px; }
+.check { flex-direction: row; align-items: center; gap: 8px; }
+.check input { width: auto; }
+
+/* Shared files */
+.upload { margin-top: 12px; padding-top: 12px; border-top: 1px solid #ECEEE9; }
+.upload input { padding: 6px; font-size: 14px; }
+.upload + .hint { margin-top: 6px; }
+.upload-name { color: inherit; overflow-wrap: anywhere; }
+.upload-name:hover { color: var(--brand); }
+
 /* Tablets and phones */
 @media (max-width: 960px) {
   .columns, .login { grid-template-columns: minmax(0, 1fr); }

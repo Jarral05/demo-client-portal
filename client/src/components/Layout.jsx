@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router';
 import {
-  FolderKanban, LayoutDashboard, LogOut, Palette, ReceiptText, ScrollText, ShieldCheck,
+  FolderKanban, Inbox, KeyRound, LayoutDashboard, LogOut, Palette, ReceiptText, ScrollText, ShieldCheck, Users,
 } from 'lucide-react';
 import { useSession } from '../session.jsx';
 import { STUDIO_URL } from '../links.js';
@@ -10,10 +10,15 @@ const CLIENT_LINKS = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/invoices', label: 'Invoices', icon: ReceiptText },
   { to: '/access-check', label: 'Access check', icon: ShieldCheck },
+  { to: '/security', label: 'Security', icon: KeyRound },
 ];
 const STAFF_LINKS = [
+  { to: '/people', label: 'People', icon: Users },
   { to: '/activity', label: 'Activity log', icon: ScrollText },
   { to: '/branding', label: 'Branding', icon: Palette },
+];
+const DEMO_LINKS = [
+  { to: '/inbox', label: 'Demo inbox', icon: Inbox },
 ];
 
 export function DemoBar() {
@@ -25,11 +30,21 @@ export function DemoBar() {
   );
 }
 
+// For pages that work signed in or out: password reset, invitations, the inbox.
+export function PublicPage({ children, wide = false }) {
+  return (
+    <>
+      <DemoBar />
+      <main className={`public-page${wide ? ' public-page-wide' : ''}`}>{children}</main>
+    </>
+  );
+}
+
 export function Layout({ children }) {
   const { session, signOut } = useSession();
   const navigate = useNavigate();
   const { user, brand } = session;
-  const links = user.role === 'staff' ? [...CLIENT_LINKS, ...STAFF_LINKS] : CLIENT_LINKS;
+  const links = [...CLIENT_LINKS, ...(user.role === 'staff' ? STAFF_LINKS : []), ...DEMO_LINKS];
 
   async function handleSignOut() {
     await signOut();

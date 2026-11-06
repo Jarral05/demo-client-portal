@@ -14,6 +14,9 @@ import { authRoutes } from './routes/auth.js';
 import { projectRoutes } from './routes/projects.js';
 import { billingRoutes } from './routes/billing.js';
 import { adminRoutes } from './routes/admin.js';
+import { accountRoutes } from './routes/account.js';
+import { peopleRoutes } from './routes/people.js';
+import { uploadRoutes } from './routes/uploads.js';
 
 const DIST = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 
@@ -80,6 +83,9 @@ export function createApp() {
   api.use(projectRoutes);
   api.use(billingRoutes);
   api.use(adminRoutes);
+  api.use(accountRoutes);
+  api.use(peopleRoutes);
+  api.use(uploadRoutes);
 
   api.use(() => {
     throw new HttpError(404, 'Not found');
@@ -103,7 +109,10 @@ export function createApp() {
   // eslint-disable-next-line no-unused-vars
   app.use((err, _req, res, _next) => {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
-    if (err.type === 'entity.parse.failed' || err.type === 'entity.too.large') {
+    if (err.type === 'entity.too.large') {
+      return res.status(413).json({ error: 'That is too large. Files can be up to 2 MB.' });
+    }
+    if (err.type === 'entity.parse.failed') {
       return res.status(400).json({ error: 'Invalid request' });
     }
     console.error(err);

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  AuditEvent, Client, Deliverable, DocumentFile, Invoice, Message, Project,
+  AuditEvent, Client, Deliverable, DocumentFile, Invoice, Message, Project, UploadedFile,
 } from '../models.js';
 import { audit, findOr404, HttpError, scope } from '../lib/access.js';
 import { requireStaff } from '../middleware/auth.js';
@@ -23,7 +23,8 @@ projectRoutes.get('/overview', async (req, res) => {
     Project.find(scope(user)).sort({ dueDate: 1 }),
     Deliverable.find(scope(user, { status: 'pending' })).sort({ createdAt: 1 }),
     Invoice.find(scope(user, { status: 'unpaid' })).sort({ dueAt: 1 }),
-    AuditEvent.find(scope(user, { action: { $nin: ['access.denied', 'auth.login'] }, clientId: { $exists: true } }))
+    // Sign-ins, password and two-step changes, and refused attempts stay in the staff log.
+    AuditEvent.find(scope(user, { action: { $not: /^(auth|access)\./ }, clientId: { $exists: true } }))
       .sort({ createdAt: -1 })
       .limit(8),
   ]);
@@ -45,14 +46,18 @@ projectRoutes.get('/projects/:id', async (req, res) => {
   const project = await findOr404(Project, req, req.params.id, 'a project');
   const inProject = scope(req.user, { projectId: project._id });
 
-  const [deliverables, messages, documents, invoices] = await Promise.all([
+  const [deliverables, messages, documents, invoices, uploads] = await Promise.all([
     Deliverable.find(inProject).sort({ createdAt: -1 }),
     Message.find(inProject).sort({ createdAt: 1 }),
     DocumentFile.find(inProject).sort({ title: 1 }),
     Invoice.find(inProject).sort({ issuedAt: -1 }),
+    // The list never loads the file contents.
+    UploadedFile.find(inProject).select('-data').sort({ createdAt: -1 }),
   ]);
   const [withName] = await withClientNames(req.user, [project]);
-  res.json({ project: withName, deliverables, messages, documents, invoices });
+  res.json({
+    project: withName, deliverables, messages, documents, invoices, uploads,
+  });
 });
 
 projectRoutes.post('/projects/:id/messages', async (req, res) => {

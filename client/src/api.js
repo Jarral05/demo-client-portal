@@ -25,6 +25,36 @@ export async function api(path, { method = 'GET', body } = {}) {
   return data;
 }
 
+// Sends a file as raw bytes, with its name in a header. The server decides what
+// the file really is from its content, so the type the browser reports doesn't matter.
+export async function uploadFile(path, file) {
+  const response = await fetch(`/api${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+      'X-File-Name': encodeURIComponent(file.name),
+    },
+    body: file,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401) window.dispatchEvent(new Event(SESSION_ENDED));
+    throw new ApiError(response.status, data.error || 'Something went wrong. Please try again.');
+  }
+  return data;
+}
+
+// Reads the token from a link such as /join#token=..., then removes it from the
+// address bar, so it isn't left in the browser history. Reading and removing are
+// separate steps: React may run the first one twice while developing.
+export function useLinkToken() {
+  const [token] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('token') ?? '');
+  useEffect(() => {
+    if (window.location.hash) window.history.replaceState(null, '', window.location.pathname);
+  }, []);
+  return token;
+}
+
 // Loads data for a page. Call reload() after changing something.
 export function useApi(path) {
   const [state, setState] = useState({ data: null, error: null, loading: true });

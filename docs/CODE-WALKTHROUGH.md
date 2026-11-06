@@ -81,13 +81,26 @@ Sign-off means the client agreed. If staff could click it, the record would prov
 **What stops someone filling the database?**
 Three limits: new copies per visitor per hour (`sandboxLimiter`), the total number of copies (`MAX_SANDBOXES`), and the size of each request body and text field.
 
+**How does password reset avoid being a way in?**
+The link carries 32 random bytes that work once, for 30 minutes. The database keeps only their SHA-256 hash. The reply is the same whether or not the account exists, and a reset raises `authVersion`, which signs out every other session. See `POST /auth/forgot` and `POST /auth/reset` in `server/routes/auth.js`.
+
+**How does two-step sign-in work without a third-party service?**
+`server/lib/totp.js` implements RFC 6238 in about 40 lines, and the tests check it against the RFC's own test values. After a correct password, the session only records that a code is owed. Nothing is reachable until `POST /auth/two-factor` succeeds. Each 30-second step can be used once.
+
+**Can an invited user give themselves more access?**
+No. `POST /auth/invite/accept` creates the account from the saved invitation only. Extra fields in the request are dropped by the zod schema, and a test sends `role: 'staff'` to prove it.
+
+**What stops a dangerous upload?**
+`server/routes/uploads.js` reads the file's first bytes to decide its type, and the name must agree. Downloads go through `findOr404`, are sent as attachments, and carry a `sandbox` Content Security Policy.
+
 **What would change for a real portal?**
 - Remove the `workspaceId` copies and `expiresAt`, and the `/demo/probes` route.
-- Add password reset, invitations, file uploads to private storage, and email.
-- Add two-factor login for staff, and backups.
+- Send real email from `server/lib/inbox.js` instead of the Demo inbox.
+- Move uploads to private file storage, with virus scanning, and encrypt the authenticator secrets.
+- Require two-step sign-in for staff, and add backups.
 
 **How do you know the tests really work?**
-They were run against a deliberately broken copy, with the access checks switched off, to confirm they fail. A test that can't fail proves nothing.
+They were run against deliberately broken copies, with one protection switched off at a time, to confirm they fail: 23 protections for version 1.0, and 26 more for 1.1. A test that can't fail proves nothing.
 
 ## Try changing something
 

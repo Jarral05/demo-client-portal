@@ -2,6 +2,22 @@
 
 All notable changes are recorded here, in [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.1.0] - 2026-11-06
+
+### Added
+
+- Password reset by emailed link. In the demo, the "email" lands in a Demo inbox inside the portal, so nothing reaches a real mailbox. The link works once, for 30 minutes, and resetting signs out every other session.
+- Two-step sign-in with an authenticator app, with 8 one-time recovery codes. Codes can't be reused, and 5 wrong codes end the attempt.
+- People page for staff: see who can sign in, invite client users or staff, and cancel invitations. Invitations only go to made-up `.example` addresses, and the role comes from the invitation, never from the person accepting it.
+- Shared files on each project: PDF, PNG or JPG up to 2 MB, checked by the file's content, not its name. Only people on the project can download them, always as a download. 5 per visit, with a cap on total storage.
+- Security page, where anyone can turn two-step sign-in on or off.
+- 38 new tests, including the RFC test values for the authenticator codes.
+
+### Changed
+
+- Sign-ins, password changes and refused attempts no longer show in a client's recent activity. Staff still see them in the Activity log.
+- A request that is too large now answers 413 with a clear message, instead of 400.
+
 ## [1.0.3] - 2026-11-05
 
 ### Changed

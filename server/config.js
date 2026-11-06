@@ -22,4 +22,13 @@ export const config = {
   trustProxy: Number(process.env.TRUST_PROXY ?? 1),
   sandboxHours: 2,
   maxSandboxes: Number(process.env.MAX_SANDBOXES) || 300,
+  // Uploads: per file, per visitor's copy, and for all visitors together, so the
+  // free 512 MB database can't fill up.
+  uploadMaxBytes: 2 * 1024 * 1024,
+  uploadsPerCopy: 5,
+  uploadTotalBytes: (Number(process.env.UPLOAD_TOTAL_MB) || 100) * 1024 * 1024,
+  // Invitations per visitor's copy, and how long a link lasts.
+  invitesPerCopy: 10,
+  inviteHours: 48,
+  resetMinutes: 30,
 };

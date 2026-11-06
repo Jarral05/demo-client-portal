@@ -8,7 +8,9 @@ A working client portal built with the MERN stack: MongoDB, Express, React and N
 
 **This is a demo, not a real client's project.** Every company, person and figure in it is made up.
 
-Clients follow their projects, sign off work, message the team and download their documents and invoices. Agency staff see every client. No client can see another client's work.
+Clients follow their projects, sign off work, message the team, share files and download their documents and invoices. Agency staff see every client and invite new people. No client can see another client's work.
+
+Version 1.1 adds password reset, two-step sign-in with an authenticator app, invitations and private file sharing.
 
 ## Why it exists
 
@@ -29,6 +31,11 @@ So this demo shows that part in the open. Sign in as a client, open **Access che
 2. Open **Access check** and run the checks.
 3. Switch to Sam and open the **Activity log**. Anna's approval and refused attempts are there.
 4. Still as Sam, open **Branding** and change the name and colour. The whole portal changes for your clients too.
+5. As Sam, open **People** and invite someone. Open the **Demo inbox**, accept the invitation and choose a password. You're now signed in as the new person, with only the access the invitation gave.
+6. Open **Security** and turn on two-step sign-in with any authenticator app. Sign out and back in: the password alone is no longer enough.
+7. On the sign-in page, use **Forgot your password?**, then open the reset link from the Demo inbox.
+
+**The Demo inbox** stands in for email. A real portal would send these messages; here they appear inside the demo, so nothing reaches a real mailbox.
 
 ## How access is enforced
 
@@ -40,6 +47,11 @@ So this demo shows that part in the open. Sign in as a client, open **Access che
 | Only an approver at the client can sign off | `POST /deliverables/:id/decision` in [server/routes/projects.js](server/routes/projects.js) |
 | Download links are checked like any other page | [server/routes/billing.js](server/routes/billing.js) |
 | Refused attempts are logged | `audit()` in [server/lib/access.js](server/lib/access.js) |
+| Reset and invitation links work once, run out, and are stored only as a hash | [server/lib/tokens.js](server/lib/tokens.js), [server/routes/auth.js](server/routes/auth.js) |
+| A password reset signs out every other session | `authVersion` in [server/middleware/auth.js](server/middleware/auth.js) |
+| Authenticator codes can't be reused | [server/lib/totp.js](server/lib/totp.js), [server/lib/twoFactor.js](server/lib/twoFactor.js) |
+| An invited person gets the role in the invitation, nothing else | `POST /auth/invite/accept` in [server/routes/auth.js](server/routes/auth.js) |
+| Uploads are checked by content, capped, and always downloaded, never shown as a page | [server/routes/uploads.js](server/routes/uploads.js) |
 
 Also in place:
 
@@ -59,11 +71,11 @@ The first sign-in creates a private copy of the sample data. Other visitors can'
 
 A real portal would also need these. This demo doesn't have them, because it has no real users or real money:
 
-- Password reset, and the emails that go with it
-- File uploads. The PDFs are generated from sample data, and nothing is stored.
+- Real email. Reset links and invitations go to the Demo inbox instead.
 - Card payments
-- Adding clients and users from the screen
-- Two-factor login
+- Adding new client companies from the screen
+- Virus scanning of uploads, and file storage outside the database. Uploads here are small, live in MongoDB, and are deleted with the visitor's copy.
+- Encrypting the authenticator secrets in the database with a separate key
 
 The `/api/demo/probes` route exists only for the Access check page. A real portal wouldn't have it.
 
@@ -84,7 +96,7 @@ Then open http://localhost:5173.
 npm test
 ```
 
-The tests mostly check what must not happen: swapped IDs, signed-out download links, staff pages opened as a client, one visitor reaching another's copy.
+The tests mostly check what must not happen: swapped IDs, signed-out download links, staff pages opened as a client, one visitor reaching another's copy, reused reset links and codes, a fake file with a PDF name. `tests/portal.test.js` covers version 1.0, `tests/accounts.test.js` version 1.1.
 
 ## Where things are
 
@@ -94,6 +106,9 @@ server/config.js       settings
 server/models.js       database collections
 server/lib/access.js   who can see and do what: read this first
 server/lib/workspace.js  creates a visitor's private copy
+server/lib/totp.js     the authenticator app codes
+server/lib/tokens.js   one-time links for resets and invitations
+server/lib/inbox.js    the Demo inbox, where email would be sent
 server/routes/         the API
 server/middleware/     login checks and security
 client/src/            the React app

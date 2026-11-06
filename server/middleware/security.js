@@ -50,6 +50,25 @@ export const sandboxLimiter = rateLimit({
   message: tooMany,
 });
 
+// Reset and invitation links: asking for them, and using them. Stops someone
+// flooding the demo inbox or guessing at links.
+export const linkLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: tooMany,
+});
+
+// Uploads are the biggest requests the demo takes, so they get their own ceiling.
+export const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: tooMany,
+});
+
 // A general ceiling for the whole API.
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000,

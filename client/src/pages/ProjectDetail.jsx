@@ -1,11 +1,78 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Download } from 'lucide-react';
-import { api, useApi } from '../api.js';
+import { api, uploadFile, useApi } from '../api.js';
 import { useSession } from '../session.jsx';
 import {
-  Empty, formatDate, formatDateTime, formatMoney, Loader, PageTitle, StatusTag,
+  Empty, formatBytes, formatDate, formatDateTime, formatMoney, Loader, PageTitle, StatusTag,
 } from '../components/ui.jsx';
+
+const MAX_UPLOAD = 2 * 1024 * 1024;
+
+function Uploads({ projectId, uploads, user, onChange }) {
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function handleFile(event) {
+    const input = event.target;
+    const file = input.files[0];
+    if (!file) return;
+    setError('');
+    // Checked here to save a wasted upload. The server checks again, because this can be bypassed.
+    if (file.size > MAX_UPLOAD) {
+      setError('That file is over 2 MB.');
+      input.value = '';
+      return;
+    }
+    setBusy(true);
+    try {
+      await uploadFile(`/projects/${projectId}/uploads`, file);
+      onChange();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+      input.value = '';
+    }
+  }
+
+  async function remove(id) {
+    setError('');
+    try {
+      await api(`/uploads/${id}`, { method: 'DELETE' });
+      onChange();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>Shared files</h2>
+      <div className="list">
+        {uploads.length === 0 && <Empty>No files shared yet.</Empty>}
+        {uploads.map((file) => (
+          <div key={file._id} className="list-row">
+            <a href={`/api/uploads/${file._id}`} className="upload-name">
+              {file.fileName}
+              <span className="muted small"> · {formatBytes(file.size)} · {file.uploadedByName}</span>
+            </a>
+            {(user.role === 'staff' || String(file.uploadedById) === String(user.id)) && (
+              <button type="button" className="link-button small" onClick={() => remove(file._id)}>Delete</button>
+            )}
+          </div>
+        ))}
+      </div>
+      <label className="upload">
+        Share a file
+        <input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" disabled={busy} onChange={handleFile} />
+      </label>
+      <p className="hint">PDF, PNG or JPG, up to 2 MB. Only people on this project can download it, and it's deleted with your copy.</p>
+      {busy && <p className="small muted" role="status">Uploading…</p>}
+      {error && <p className="notice notice-error" role="alert">{error}</p>}
+    </section>
+  );
+}
 
 function Milestones({ project, canEdit, onChange }) {
   const [error, setError] = useState('');
@@ -192,7 +259,7 @@ export function ProjectDetail() {
 
   return (
     <Loader state={state}>
-      {({ project, deliverables, messages, documents, invoices }) => (
+      {({ project, deliverables, messages, documents, invoices, uploads }) => (
         <>
           <p className="breadcrumb"><Link to="/projects">Projects</Link></p>
           <PageTitle
@@ -226,6 +293,7 @@ export function ProjectDetail() {
                   ))}
                 </div>
               </section>
+              <Uploads projectId={project._id} uploads={uploads} user={session.user} onChange={state.reload} />
               <section className="card">
                 <h2>Invoices</h2>
                 <div className="list">

@@ -25,8 +25,15 @@ export function SessionProvider({ children }) {
     if (session?.brand?.color) document.documentElement.style.setProperty('--brand', session.brand.color);
   }, [session?.brand?.color]);
 
+  // Returns { twoFactor: true } when the account needs a code as well.
   const signIn = useCallback(async (email, password) => {
-    await api('/auth/login', { method: 'POST', body: { email, password } });
+    const result = await api('/auth/login', { method: 'POST', body: { email, password } });
+    if (!result.twoFactor) await refresh();
+    return result;
+  }, [refresh]);
+
+  const confirmCode = useCallback(async (code) => {
+    await api('/auth/two-factor', { method: 'POST', body: { code } });
     await refresh();
   }, [refresh]);
 
@@ -36,7 +43,7 @@ export function SessionProvider({ children }) {
   }, [refresh]);
 
   return (
-    <SessionContext.Provider value={{ session, refresh, signIn, signOut }}>
+    <SessionContext.Provider value={{ session, refresh, signIn, confirmCode, signOut }}>
       {children}
     </SessionContext.Provider>
   );
