@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router';
 import { api, useLinkToken } from '../api.js';
 import { useSession } from '../session.jsx';
 import { PublicPage } from '../components/Layout.jsx';
+import { Field, PasswordInput, StrengthMeter } from '../components/forms.jsx';
+import { checkPassword } from '../../../shared/password.js';
 
 export function AcceptInvite() {
   const { refresh } = useSession();
@@ -10,6 +12,7 @@ export function AcceptInvite() {
   const token = useLinkToken();
   const [invite, setInvite] = useState(null);
   const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [error, setError] = useState(token ? '' : 'This link is incomplete. Open it again from the Demo inbox.');
 
   useEffect(() => {
@@ -21,13 +24,19 @@ export function AcceptInvite() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setError('');
+    const strength = checkPassword(password, invite);
+    if (!strength.ok) {
+      setPasswordError(strength.problem);
+      return;
+    }
+    setPasswordError('');
     try {
       await api('/auth/invite/accept', { method: 'POST', body: { token, password } });
       await refresh();
       navigate('/');
     } catch (err) {
-      setError(err.message);
+      if (err.field === 'password') setPasswordError(err.message);
+      else setError(err.message);
     }
   }
 
@@ -45,12 +54,11 @@ export function AcceptInvite() {
               <strong>{invite.invitedByName}</strong> invited <strong>{invite.name}</strong> ({invite.email})
               {' '}to the {invite.brandName} client portal, {joining}.
             </p>
-            <form className="stack-small" onSubmit={handleSubmit}>
-              <label>
-                Choose a password
-                <input type="password" autoComplete="new-password" minLength={10} maxLength={200} required value={password} onChange={(event) => setPassword(event.target.value)} />
-              </label>
-              <p className="hint">At least 10 characters. What you can see comes from the invitation, not from this page.</p>
+            <form className="stack-small" onSubmit={handleSubmit} noValidate>
+              <Field label="Choose a password" error={passwordError} hint="At least 10 characters. What you can see comes from the invitation, not from this page.">
+                {(props) => <PasswordInput {...props} autoComplete="new-password" maxLength={200} value={password} onChange={(value) => { setPassword(value); setPasswordError(''); }} />}
+              </Field>
+              <StrengthMeter password={password} person={invite} />
               <div><button type="submit" className="button">Join and sign in</button></div>
             </form>
           </>

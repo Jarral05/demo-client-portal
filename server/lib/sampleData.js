@@ -42,6 +42,14 @@ export const PERSONAS = [
     canApprove: false,
     label: 'Agency staff, sees every client',
   },
+  {
+    email: 'lena@sampleagency.example',
+    name: 'Lena Brooks',
+    company: 'Sample Agency',
+    role: 'admin',
+    canApprove: false,
+    label: 'Admin: gives roles and suspends accounts',
+  },
 ];
 
 const DAY = 24 * 60 * 60 * 1000;

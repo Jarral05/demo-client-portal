@@ -1,24 +1,83 @@
-// Staff manage who can sign in: see everyone, invite people, cancel invitations.
+// Who can sign in, and with what access.
+// Staff see everyone and invite people. Only admins change roles or suspend accounts.
 import { Router } from 'express';
 import { Client, Invite, User, Workspace } from '../models.js';
 import { audit, findOr404, HttpError } from '../lib/access.js';
 import { sendToInbox } from '../lib/inbox.js';
 import { newToken } from '../lib/tokens.js';
-import { inviteBody, parse } from '../lib/validate.js';
-import { requireStaff } from '../middleware/auth.js';
+import { accessBody, inviteBody, parse } from '../lib/validate.js';
+import { requireAdmin, requireStaff } from '../middleware/auth.js';
 import { config } from '../config.js';
+import { ROLE_NAMES, ROLES } from '../../shared/roles.js';
 
 export const peopleRoutes = Router();
 
+const OBJECT_ID = /^[a-f\d]{24}$/i;
+
+// Loads someone in the admin's own copy, or answers 404.
+async function personInCopy(req) {
+  const person = OBJECT_ID.test(req.params.id)
+    ? await User.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId })
+    : null;
+  if (!person) throw new HttpError(404, 'Not found');
+  // Nobody can change or suspend their own account. That also means there is
+  // always at least one admin left: the one doing the changing.
+  if (String(person._id) === String(req.user._id)) {
+    throw new HttpError(409, "You can't change your own access. Ask another admin.");
+  }
+  return person;
+}
+
+// Admins only: change what someone can see and do.
+peopleRoutes.put('/people/:id/access', requireAdmin, async (req, res) => {
+  const person = await personInCopy(req);
+  const { role, clientId, canApprove } = parse(accessBody, req.body);
+
+  let client = null;
+  if (role === 'client') {
+    client = await Client.findOne({ workspaceId: req.user.workspaceId, _id: clientId });
+    if (!client) throw new HttpError(400, 'Choose which client they belong to', 'clientId');
+  }
+
+  // Only client users belong to a company or sign off work.
+  person.role = role;
+  person.clientId = client?._id;
+  person.canApprove = role === 'client' && Boolean(canApprove);
+  await person.save();
+
+  const access = client ? `${ROLES[role].label} at ${client.name}` : ROLES[role].label;
+  await audit(req, 'people.access_changed', `Gave ${person.name} the role ${access}`, client?._id);
+  res.json({ ok: true });
+});
+
+peopleRoutes.post('/people/:id/suspend', requireAdmin, async (req, res) => {
+  const person = await personInCopy(req);
+  person.suspended = true;
+  await person.save();
+  await audit(req, 'people.suspended', `Suspended ${person.name}`, person.clientId);
+  res.json({ ok: true });
+});
+
+peopleRoutes.post('/people/:id/restore', requireAdmin, async (req, res) => {
+  const person = await personInCopy(req);
+  person.suspended = false;
+  await person.save();
+  await audit(req, 'people.restored', `Restored ${person.name}`, person.clientId);
+  res.json({ ok: true });
+});
+
 peopleRoutes.get('/people', requireStaff, async (req, res) => {
   const { workspaceId } = req.user;
-  const [users, invites, clients] = await Promise.all([
-    User.find({ workspaceId }).sort({ role: -1, name: 1 }),
+  const [found, invites, clients] = await Promise.all([
+    User.find({ workspaceId }).sort({ name: 1 }),
     Invite.find({ workspaceId, status: 'pending' }).sort({ createdAt: -1 }),
     Client.find({ workspaceId }).sort({ name: 1 }),
   ]);
   const names = new Map(clients.map((client) => [String(client._id), client.name]));
   const clientName = (record) => (record.clientId ? names.get(String(record.clientId)) : null);
+
+  // Admins first, customers last, so new sign-ups waiting for access are easy to spot.
+  const users = found.sort((a, b) => ROLE_NAMES.indexOf(a.role) - ROLE_NAMES.indexOf(b.role));
 
   res.json({
     users: users.map((user) => ({
@@ -26,9 +85,13 @@ peopleRoutes.get('/people', requireStaff, async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      clientId: user.clientId,
       canApprove: user.canApprove,
       clientName: clientName(user),
       twoFactor: user.totpEnabled,
+      emailVerified: user.emailVerified,
+      suspended: user.suspended,
+      isYou: String(user._id) === String(req.user._id),
     })),
     invites: invites.map((invite) => ({
       ...invite.toJSON(),

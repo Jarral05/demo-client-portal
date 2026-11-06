@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router';
 import { api, useLinkToken } from '../api.js';
 import { useSession } from '../session.jsx';
 import { PublicPage } from '../components/Layout.jsx';
+import { Field, PasswordInput, StrengthMeter } from '../components/forms.jsx';
+import { checkPassword } from '../../../shared/password.js';
 
 export function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -58,6 +60,11 @@ export function ResetPassword() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    const strength = checkPassword(password);
+    if (!strength.ok) {
+      setError(strength.problem);
+      return;
+    }
     setError('');
     try {
       await api('/auth/reset', { method: 'POST', body: { token, password } });
@@ -75,21 +82,19 @@ export function ResetPassword() {
         <h1>Choose a new password</h1>
         {!token && <p className="notice notice-error" role="alert">This link is incomplete. Open it again from the Demo inbox.</p>}
         {token && !done && (
-          <form className="stack-small" onSubmit={handleSubmit}>
-            <label>
-              New password
-              <input type="password" autoComplete="new-password" minLength={10} maxLength={200} required value={password} onChange={(event) => setPassword(event.target.value)} />
-            </label>
-            <p className="hint">At least 10 characters. The link works once.</p>
+          <form className="stack-small" onSubmit={handleSubmit} noValidate>
+            <Field label="New password" error={error} hint="At least 10 characters. A few random words work well. The link works once.">
+              {(props) => <PasswordInput {...props} autoComplete="new-password" maxLength={200} value={password} onChange={(value) => { setPassword(value); setError(''); }} />}
+            </Field>
+            <StrengthMeter password={password} />
             <div><button type="submit" className="button">Save the new password</button></div>
-            {error && <p className="notice notice-error" role="alert">{error}</p>}
           </form>
         )}
         {done && (
           <>
             <p className="notice" role="status">
               Password changed. Every session that used the old password is now signed out.
-              The one-click button for this person won't work in your copy any more: sign in by hand with the new password.
+              The sample password won't work for this person in your copy any more: sign in with the new one.
             </p>
             <div><button type="button" className="button" onClick={() => navigate('/')}>Go to sign in</button></div>
           </>

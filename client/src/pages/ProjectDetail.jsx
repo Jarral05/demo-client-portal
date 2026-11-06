@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { Download } from 'lucide-react';
 import { api, uploadFile, useApi } from '../api.js';
 import { useSession } from '../session.jsx';
+import { isTeam } from "../../../shared/roles.js";
 import {
   Empty, formatBytes, formatDate, formatDateTime, formatMoney, Loader, PageTitle, StatusTag,
 } from '../components/ui.jsx';
@@ -57,7 +58,7 @@ function Uploads({ projectId, uploads, user, onChange }) {
               {file.fileName}
               <span className="muted small"> · {formatBytes(file.size)} · {file.uploadedByName}</span>
             </a>
-            {(user.role === 'staff' || String(file.uploadedById) === String(user.id)) && (
+            {(isTeam(user.role) || String(file.uploadedById) === String(user.id)) && (
               <button type="button" className="link-button small" onClick={() => remove(file._id)}>Delete</button>
             )}
           </div>
@@ -254,7 +255,7 @@ export function ProjectDetail() {
   const { id } = useParams();
   const { session } = useSession();
   const state = useApi(`/projects/${id}`);
-  const isStaff = session.user.role === 'staff';
+  const isStaff = isTeam(session.user.role);
   const canDecide = session.user.role === 'client' && session.user.canApprove;
 
   return (

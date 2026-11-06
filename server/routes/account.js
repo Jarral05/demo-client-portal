@@ -1,15 +1,45 @@
-// The signed-in person's own security settings: two-step sign-in.
+// The signed-in person's own settings: name, password and two-step sign-in.
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
 import { User, Workspace } from '../models.js';
 import { audit, HttpError } from '../lib/access.js';
 import { hashToken } from '../lib/tokens.js';
 import { checkSecondFactor } from '../lib/twoFactor.js';
 import { newRecoveryCodes, newTotpSecret, otpauthUrl, verifyTotp } from '../lib/totp.js';
-import { parse, secondFactorBody, totpCodeBody } from '../lib/validate.js';
+import { checkNewPassword, hashPassword } from '../lib/passwords.js';
+import {
+  changePasswordBody, parse, profileBody, secondFactorBody, totpCodeBody,
+} from '../lib/validate.js';
 import { loginLimiter } from '../middleware/security.js';
 
 export const accountRoutes = Router();
+
+accountRoutes.put('/account/profile', async (req, res) => {
+  const { name } = parse(profileBody, req.body);
+  await User.updateOne({ _id: req.user._id }, { $set: { name } });
+  await audit(req, 'profile.updated', `Changed their name to ${name}`);
+  res.json({ ok: true });
+});
+
+// Changing a password needs the current one, so someone at an unlocked computer can't.
+accountRoutes.post('/account/password', loginLimiter, async (req, res) => {
+  const { currentPassword, newPassword } = parse(changePasswordBody, req.body);
+  if (!(await bcrypt.compare(currentPassword, req.user.passwordHash))) {
+    throw new HttpError(400, "That isn't your current password.", 'currentPassword');
+  }
+  checkNewPassword(newPassword, req.user, 'newPassword');
+  if (await bcrypt.compare(newPassword, req.user.passwordHash)) {
+    throw new HttpError(400, 'Choose a password different from your current one.', 'newPassword');
+  }
+
+  // Like a reset, this signs out every other session. This one stays signed in.
+  const authVersion = (req.user.authVersion ?? 0) + 1;
+  await User.updateOne({ _id: req.user._id }, { $set: { passwordHash: await hashPassword(newPassword), authVersion } });
+  req.session.authVersion = authVersion;
+  await audit(req, 'auth.password_changed', 'Changed their password');
+  res.json({ ok: true });
+});
 
 accountRoutes.get('/account/security', (req, res) => {
   res.json({

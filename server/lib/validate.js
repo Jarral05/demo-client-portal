@@ -6,9 +6,46 @@ import { HttpError } from './access.js';
 // refused here instead of reaching a query.
 export function parse(schema, body) {
   const result = schema.safeParse(body);
-  if (!result.success) throw new HttpError(400, result.error.issues[0]?.message ?? 'Invalid request');
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    // A wrong type (an object where text belongs) gets a plain message, not zod's wording.
+    const message = issue?.code === 'invalid_type' ? 'Please fill in every box.' : issue?.message;
+    throw new HttpError(400, message ?? 'Invalid request', issue?.path?.[0]);
+  }
   return result.data;
 }
+
+// Made-up addresses only. .example can never be a real mailbox, so a visitor
+// can't make the demo store someone's real email address.
+const exampleEmail = z.string().trim().toLowerCase().max(200)
+  .regex(/^[^\s@]+@([a-z\d-]+\.)*[a-z\d-]+\.example$/, 'Use a made-up address ending in .example, like you@company.example. This demo never stores real email addresses.');
+
+const personName = z.string().trim().min(1, 'Add your name').max(80, 'Keep the name under 80 characters');
+
+export const registerBody = z.object({
+  name: personName,
+  email: exampleEmail,
+  // Length only here. The fuller check (common passwords, your own name) runs after.
+  password: z.string().max(200, 'Keep the password under 200 characters'),
+  // A box hidden from people. Only bots fill it in.
+  website: z.string().max(200).optional(),
+});
+
+export const profileBody = z.object({ name: personName });
+
+export const changePasswordBody = z.object({
+  currentPassword: z.string().min(1, 'Enter your current password').max(200),
+  newPassword: z.string().max(200, 'Keep the password under 200 characters'),
+});
+
+export const accessBody = z.object({
+  role: z.enum(['admin', 'staff', 'client', 'customer']),
+  clientId: z.string().regex(/^[a-f\d]{24}$/i).optional(),
+  canApprove: z.boolean().optional(),
+}).refine((value) => value.role !== 'client' || Boolean(value.clientId), {
+  message: 'Choose which client they belong to',
+  path: ['clientId'],
+});
 
 export const BRAND_COLORS = ['#14453A', '#1D3F72', '#5B2A5E', '#8A3B1E', '#2B2F33'];
 
@@ -41,9 +78,8 @@ export const emailBody = z.object({
   email: z.string().trim().toLowerCase().max(200),
 });
 
-const newPassword = z.string()
-  .min(10, 'Use at least 10 characters')
-  .max(200, 'Keep the password under 200 characters');
+// Length only here. checkNewPassword() in passwords.js does the fuller check.
+const newPassword = z.string().max(200, 'Keep the password under 200 characters');
 
 // Reset and invitation links carry 64 hex characters.
 const token = z.string().regex(/^[a-f\d]{64}$/, 'This link is incomplete. Open it again from the demo inbox.');
@@ -62,17 +98,16 @@ export const secondFactorBody = z.object({
     .regex(/^(\d{6}|[a-z\d]{5}-[a-z\d]{5})$/, 'Enter the 6-digit code, or a recovery code such as abcde-23456'),
 });
 
-// Invitations only go to made-up addresses. .example can never be a real mailbox,
-// so a visitor can't make the demo store someone's real email address.
+// Invitations only go to made-up addresses, like sign-ups.
 export const inviteBody = z.object({
   name: z.string().trim().min(1, 'Add a name').max(80, 'Keep the name under 80 characters'),
-  email: z.string().trim().toLowerCase().max(200)
-    .regex(/^[^\s@]+@([a-z\d-]+\.)*[a-z\d-]+\.example$/, 'Use a made-up address ending in .example, such as jo@company.example'),
+  email: exampleEmail,
   role: z.enum(['client', 'staff']),
   clientId: z.string().regex(/^[a-f\d]{24}$/i).optional(),
   canApprove: z.boolean().optional(),
 }).refine((value) => value.role === 'staff' || Boolean(value.clientId), {
   message: 'Choose which client they belong to',
+  path: ['clientId'],
 });
 
 export const brandBody = z.object({

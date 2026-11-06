@@ -2,6 +2,26 @@
 
 All notable changes are recorded here, in [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.2.0] - 2026-11-06
+
+### Added
+
+- Sign-up page. New accounts start as Customer and must confirm their email through a link in the Demo inbox. Sign-ups only accept made-up `.example` addresses.
+- Four roles: Admin, Staff, Client and Customer. A new Admin sample account, Lena Brooks.
+- Admins can change anyone's access and suspend or restore accounts from the People page, except their own. A suspended person is signed out on their next click.
+- Profile page: change your name, or your password (needs the current one, and signs out other devices).
+- Show/Hide button on every password box, and a live strength meter on every new password.
+- Password rules shared by the screens and the server: at least 10 characters, and no common passwords, keyboard patterns or your own name, company or email.
+- Error messages in plain words, shown next to the box they belong to.
+- Bot protection on sign-up: a hidden box only bots fill in, and a limit of 10 sign-ups an hour per visitor.
+- 22 new tests.
+
+### Changed
+
+- Signing in now means typing an email and password. The sample accounts no longer sign in with one click: "Try a sample account" fills in the form.
+- Signing up with an address that already has an account gives the normal answer, and the address's owner gets an email about it, so the page doesn't reveal who has an account.
+- The access rule now fails closed: only Admin, Staff and Client users with a company can see any client's work. Any other role gets nothing.
+
 ## [1.1.0] - 2026-11-06
 
 ### Added

@@ -13,7 +13,7 @@ const Id = Schema.Types.ObjectId;
 // Never sent to the browser: secrets, hashes and file contents.
 const HIDDEN_FIELDS = [
   'workspaceId', 'expiresAt', 'passwordHash', '__v', 'authVersion',
-  'resetTokenHash', 'resetTokenExpires',
+  'resetTokenHash', 'resetTokenExpires', 'verifyTokenHash', 'verifyTokenExpires',
   'totpSecret', 'totpPendingSecret', 'totpLastStep', 'recoveryCodeHashes',
   'tokenHash', 'data',
 ];
@@ -57,9 +57,17 @@ const userSchema = sandboxSchema({
   email: { type: String, required: true },
   passwordHash: { type: String, required: true },
   name: { type: String, required: true },
-  role: { type: String, enum: ['staff', 'client'], required: true },
-  // Staff have no clientId. Client users always have one.
+  // admin and staff: the agency. client: one company. customer: signed up, no access yet.
+  role: { type: String, enum: ['admin', 'staff', 'client', 'customer'], required: true },
+  // Only client users have a clientId.
   clientId: { type: Id, ref: 'Client' },
+  // People who sign up must confirm their address first. Sample and invited people
+  // already have: an invitation link proves the address works.
+  emailVerified: { type: Boolean, default: true },
+  verifyTokenHash: { type: String, index: true },
+  verifyTokenExpires: Date,
+  // A suspended account can't sign in, and its open sessions stop working at once.
+  suspended: { type: Boolean, default: false },
   // A client user can read everything of theirs, but only approvers can sign work off.
   canApprove: { type: Boolean, default: false },
   // Goes up when the password is reset. Sessions remember the number they started

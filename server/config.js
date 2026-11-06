@@ -29,6 +29,8 @@ export const config = {
   uploadTotalBytes: (Number(process.env.UPLOAD_TOTAL_MB) || 100) * 1024 * 1024,
   // Invitations per visitor's copy, and how long a link lasts.
   invitesPerCopy: 10,
+  // Accounts per visitor's copy, counting the 5 sample people.
+  usersPerCopy: 30,
   inviteHours: 48,
   resetMinutes: 30,
 };

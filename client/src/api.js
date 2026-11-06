@@ -1,10 +1,13 @@
 // One small wrapper for talking to the server.
 import { useCallback, useEffect, useState } from 'react';
 
+// field: which form box the message belongs to. code: a machine-readable reason.
 export class ApiError extends Error {
-  constructor(status, message) {
+  constructor(status, message, field, code) {
     super(message);
     this.status = status;
+    this.field = field;
+    this.code = code;
   }
 }
 
@@ -20,7 +23,7 @@ export async function api(path, { method = 'GET', body } = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event(SESSION_ENDED));
-    throw new ApiError(response.status, data.error || 'Something went wrong. Please try again.');
+    throw new ApiError(response.status, data.error || 'Something went wrong. Please try again.', data.field, data.code);
   }
   return data;
 }

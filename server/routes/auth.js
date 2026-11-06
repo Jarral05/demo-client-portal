@@ -7,9 +7,12 @@ import { sendToInbox } from '../lib/inbox.js';
 import { hashToken, newToken } from '../lib/tokens.js';
 import { checkSecondFactor } from '../lib/twoFactor.js';
 import {
-  emailBody, loginBody, parse, secondFactorBody, tokenBody, tokenPasswordBody,
+  emailBody, loginBody, parse, registerBody, secondFactorBody, tokenBody, tokenPasswordBody,
 } from '../lib/validate.js';
-import { linkLimiter, loginLimiter, sandboxLimiter } from '../middleware/security.js';
+import { checkNewPassword, hashPassword } from '../lib/passwords.js';
+import {
+  linkLimiter, loginLimiter, registerLimiter, sandboxLimiter,
+} from '../middleware/security.js';
 import { regenerate, startSession } from '../middleware/auth.js';
 import { config } from '../config.js';
 import { DEFAULT_BRAND, PERSONAS, SAMPLE_PASSWORD } from '../lib/sampleData.js';
@@ -18,7 +21,11 @@ export const authRoutes = Router();
 
 // Compared when no such user exists, so a wrong email takes as long as a wrong password.
 const noUserHash = bcrypt.hash('no-such-user', 10);
-const BAD_LOGIN = { error: 'That email and password do not match.' };
+// The same words for a wrong email and a wrong password, so this page can't be
+// used to find out who has an account.
+const BAD_LOGIN = {
+  error: "That email and password don't match. Check for typos, or use Forgot your password.",
+};
 const SECOND_STEP_MINUTES = 5;
 const SECOND_STEP_TRIES = 5;
 
@@ -45,6 +52,18 @@ authRoutes.post('/login', loginLimiter, sandboxLimiter, async (req, res) => {
   const user = await User.findOne({ workspaceId, email });
   const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? (await noUserHash));
   if (!user || !passwordOk) return res.status(401).json(BAD_LOGIN);
+
+  // These two are only said after a correct password, so they reveal nothing to a stranger.
+  if (user.suspended) {
+    throw new HttpError(403, 'This account is suspended. Ask an admin to restore it.');
+  }
+  if (!user.emailVerified) {
+    await sendVerifyLink(user);
+    return res.status(403).json({
+      error: 'Please confirm your email address first. We sent a new link to the Demo inbox.',
+      code: 'unverified',
+    });
+  }
 
   // A new session ID at login, so an ID planted before login is useless afterwards.
   await regenerate(req.session);
@@ -135,6 +154,100 @@ authRoutes.get('/personas', (_req, res) => {
   });
 });
 
+// ---- Signing up ----
+
+const VERIFY_HOURS = 24;
+
+async function sendVerifyLink(user) {
+  const { token, hash } = newToken();
+  await User.updateOne(
+    { _id: user._id },
+    { $set: { verifyTokenHash: hash, verifyTokenExpires: new Date(Date.now() + VERIFY_HOURS * 60 * 60 * 1000) } },
+  );
+  const workspace = await Workspace.findById(user.workspaceId);
+  await sendToInbox(workspace, {
+    to: user.email,
+    subject: 'Confirm your email address',
+    body: `Welcome, ${user.name}. Confirm that ${user.email} is your address to finish setting up your account on the `
+      + `${workspace.brand.name} client portal. The link works once, for ${VERIFY_HOURS} hours.`,
+    link: `/verify-email#token=${token}`,
+    linkLabel: 'Confirm my email',
+  });
+}
+
+// One answer for every sign-up, whether the address is new or already taken.
+// If it's taken, the owner of the address gets an email saying so, instead of the
+// page telling a stranger "that email has an account".
+const SIGNED_UP = {
+  ok: true,
+  message: 'Nearly done. Open the Demo inbox and click the link to confirm your email address.',
+};
+
+authRoutes.post('/register', registerLimiter, sandboxLimiter, async (req, res) => {
+  const { name, email, password, website } = parse(registerBody, req.body);
+  checkNewPassword(password, { name, email });
+
+  // Only bots fill in the hidden "website" box. They get the normal answer and nothing is made.
+  if (website) return res.json(SIGNED_UP);
+
+  let workspaceId = await currentWorkspaceId(req);
+  if (!workspaceId) {
+    workspaceId = await createWorkspace();
+    req.session.workspaceId = workspaceId;
+  }
+  const workspace = await Workspace.findById(workspaceId);
+
+  const existing = await User.findOne({ workspaceId, email });
+  if (existing) {
+    await sendToInbox(workspace, {
+      to: email,
+      subject: 'You already have an account',
+      body: `Someone tried to sign up with ${email}, which already has an account on the ${workspace.brand.name} client portal. `
+        + "If it was you, sign in instead, or reset your password if you've forgotten it. If it wasn't you, you can ignore this email.",
+      link: '/forgot-password',
+      linkLabel: 'Reset my password',
+    });
+    return res.json(SIGNED_UP);
+  }
+
+  if ((await User.countDocuments({ workspaceId })) >= config.usersPerCopy) {
+    throw new HttpError(409, `This demo allows ${config.usersPerCopy} accounts per visit.`);
+  }
+
+  // Every new account starts as a customer: signed in, but no client's work.
+  // Only an admin can give it more.
+  const user = await User.create({
+    workspaceId,
+    expiresAt: workspace.expiresAt,
+    email,
+    name,
+    role: 'customer',
+    emailVerified: false,
+    passwordHash: await hashPassword(password),
+  });
+  await sendVerifyLink(user);
+  await auditFor(user, 'auth.registered', 'Signed up as a customer');
+  res.status(201).json(SIGNED_UP);
+});
+
+authRoutes.post('/verify', linkLimiter, async (req, res) => {
+  const { token } = parse(tokenBody, req.body);
+  const user = await User.findOneAndUpdate(
+    { verifyTokenHash: hashToken(token), verifyTokenExpires: { $gt: new Date() } },
+    { $set: { emailVerified: true }, $unset: { verifyTokenHash: 1, verifyTokenExpires: 1 } },
+    { returnDocument: 'after' },
+  );
+  if (!user) throw new HttpError(400, 'This link has expired or was already used. Sign in, and we will send a new one.');
+  if (user.suspended) throw new HttpError(403, 'This account is suspended. Ask an admin to restore it.');
+
+  // Confirming the address also signs them in, the way most sites do.
+  await regenerate(req.session);
+  req.session.workspaceId = user.workspaceId;
+  startSession(req, user);
+  await audit(req, 'auth.email_verified', 'Confirmed their email address');
+  res.json({ ok: true });
+});
+
 // ---- Password reset ----
 
 // Always the same answer, whether or not the account exists, so this page can't
@@ -178,6 +291,11 @@ authRoutes.post('/forgot', linkLimiter, sandboxLimiter, async (req, res) => {
 authRoutes.post('/reset', linkLimiter, async (req, res) => {
   const { token, password } = parse(tokenPasswordBody, req.body);
 
+  // Check the password before using up the link, so a weak choice doesn't waste it.
+  const pending = await User.findOne({ resetTokenHash: hashToken(token), resetTokenExpires: { $gt: new Date() } });
+  if (!pending) throw new HttpError(400, 'This link has expired or was already used. Ask for a new one.');
+  checkNewPassword(password, pending);
+
   // Find and use up the token in one step, so the same link can't work twice.
   const user = await User.findOneAndUpdate(
     { resetTokenHash: hashToken(token), resetTokenExpires: { $gt: new Date() } },
@@ -185,10 +303,11 @@ authRoutes.post('/reset', linkLimiter, async (req, res) => {
   );
   if (!user) throw new HttpError(400, 'This link has expired or was already used. Ask for a new one.');
 
-  // A new authVersion signs out every session that used the old password.
+  // A new authVersion signs out every session that used the old password. The link
+  // arrived by email, which also proves the address works.
   await User.updateOne(
     { _id: user._id },
-    { $set: { passwordHash: await bcrypt.hash(password, 10) }, $inc: { authVersion: 1 } },
+    { $set: { passwordHash: await hashPassword(password), emailVerified: true }, $inc: { authVersion: 1 } },
   );
   await auditFor(user, 'auth.password_reset', 'Reset their password with an emailed link', user.clientId);
   // Not signed in here: they sign in with the new password, and their code if two-step is on.
@@ -238,6 +357,11 @@ authRoutes.post('/invite/check', linkLimiter, async (req, res) => {
 authRoutes.post('/invite/accept', linkLimiter, async (req, res) => {
   const { token, password } = parse(tokenPasswordBody, req.body);
 
+  // Check the password before using up the invitation, so a weak choice doesn't waste it.
+  const open = await findOpenInvite(token);
+  if (!open) throw new HttpError(400, INVITE_GONE);
+  checkNewPassword(password, open);
+
   // Use up the invitation in one step, so two clicks can't make two accounts.
   const invite = await Invite.findOneAndUpdate(
     { tokenHash: hashToken(token), status: 'pending', validUntil: { $gt: new Date() } },
@@ -256,7 +380,7 @@ authRoutes.post('/invite/accept', linkLimiter, async (req, res) => {
       role: invite.role,
       clientId: invite.clientId,
       canApprove: invite.canApprove,
-      passwordHash: await bcrypt.hash(password, 10),
+      passwordHash: await hashPassword(password),
     });
   } catch (error) {
     if (error.code === 11000) throw new HttpError(409, 'Someone with this email address already has an account.');

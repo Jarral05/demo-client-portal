@@ -1,25 +1,34 @@
 import { NavLink, useNavigate } from 'react-router';
 import {
-  FolderKanban, Inbox, KeyRound, LayoutDashboard, LogOut, Palette, ReceiptText, ScrollText, ShieldCheck, Users,
+  CircleUser, FolderKanban, House, Inbox, KeyRound, LayoutDashboard, LogOut, Palette, ReceiptText, ScrollText,
+  ShieldCheck, Users,
 } from 'lucide-react';
 import { useSession } from '../session.jsx';
 import { STUDIO_URL } from '../links.js';
+import { ROLES } from '../../../shared/roles.js';
 
-const CLIENT_LINKS = [
-  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
+const WORK = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/invoices', label: 'Invoices', icon: ReceiptText },
-  { to: '/access-check', label: 'Access check', icon: ShieldCheck },
-  { to: '/security', label: 'Security', icon: KeyRound },
 ];
-const STAFF_LINKS = [
+const TEAM = [
   { to: '/people', label: 'People', icon: Users },
   { to: '/activity', label: 'Activity log', icon: ScrollText },
   { to: '/branding', label: 'Branding', icon: Palette },
 ];
-const DEMO_LINKS = [
+const MINE = [
+  { to: '/profile', label: 'Profile', icon: CircleUser },
+  { to: '/security', label: 'Security', icon: KeyRound },
   { to: '/inbox', label: 'Demo inbox', icon: Inbox },
 ];
+
+// The menu for each role. It only decides what's shown; the server decides what's allowed.
+function linksFor(role) {
+  if (role === 'customer') return [{ to: '/', label: 'Welcome', icon: House, end: true }, ...MINE];
+  const home = { to: '/', label: 'Overview', icon: LayoutDashboard, end: true };
+  if (role === 'client') return [home, ...WORK, { to: '/access-check', label: 'Access check', icon: ShieldCheck }, ...MINE];
+  return [home, ...WORK, ...TEAM, ...MINE];
+}
 
 export function DemoBar() {
   return (
@@ -44,7 +53,7 @@ export function Layout({ children }) {
   const { session, signOut } = useSession();
   const navigate = useNavigate();
   const { user, brand } = session;
-  const links = [...CLIENT_LINKS, ...(user.role === 'staff' ? STAFF_LINKS : []), ...DEMO_LINKS];
+  const links = linksFor(user.role);
 
   async function handleSignOut() {
     await signOut();
@@ -67,7 +76,7 @@ export function Layout({ children }) {
           </nav>
           <div className="sidebar-user">
             <div className="sidebar-user-name">{user.name}</div>
-            <div className="sidebar-user-org">{user.clientName ?? `${brand.name} staff`}</div>
+            <div className="sidebar-user-org">{user.clientName ?? `${ROLES[user.role].label}, ${brand.name}`}</div>
             <button type="button" className="link-button" onClick={handleSignOut}>
               <LogOut size={15} aria-hidden="true" /> Sign out or switch
             </button>

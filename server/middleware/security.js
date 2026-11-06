@@ -27,7 +27,7 @@ export function noStore(_req, res, next) {
   next();
 }
 
-const tooMany = { error: 'Too many attempts. Please wait a few minutes and try again.' };
+const tooMany = { error: 'Too many tries. Please wait a few minutes and try again.' };
 
 // Slows password guessing. Successful logins don't count, so switching
 // between demo accounts is never blocked.
@@ -37,7 +37,7 @@ export const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: tooMany,
+  message: { error: 'Too many tries. Please wait 15 minutes, or use Forgot your password.' },
 });
 
 // Limits new sample-data copies per visitor. Someone with a copy already isn't counted.
@@ -58,6 +58,15 @@ export const linkLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: tooMany,
+});
+
+// New accounts per visitor, so a bot can't make thousands.
+export const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many sign-ups from here. Please wait an hour and try again.' },
 });
 
 // Uploads are the biggest requests the demo takes, so they get their own ceiling.

@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { useApi } from '../api.js';
 import { useSession } from '../session.jsx';
+import { isTeam } from "../../../shared/roles.js";
 import {
   Empty, formatDate, formatDateTime, formatMoney, Loader, PageTitle, StatusTag,
 } from '../components/ui.jsx';
@@ -34,7 +35,7 @@ export function Overview() {
     <>
       <PageTitle
         title={`Hello, ${firstName}`}
-        intro={session.user.role === 'staff' ? 'Everything across your clients.' : `Your work with ${session.brand.name}.`}
+        intro={isTeam(session.user.role) ? 'Everything across your clients.' : `Your work with ${session.brand.name}.`}
       />
       <Loader state={state}>
         {({ projects, waiting, invoices, recent }) => (

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { api, useApi } from '../api.js';
 import { useSession } from '../session.jsx';
+import { isTeam } from "../../../shared/roles.js";
 import {
   Empty, formatDate, formatMoney, Loader, PageTitle, StatusTag,
 } from '../components/ui.jsx';
@@ -10,7 +11,7 @@ export function Invoices() {
   const { session } = useSession();
   const state = useApi('/invoices');
   const [error, setError] = useState('');
-  const isStaff = session.user.role === 'staff';
+  const isStaff = isTeam(session.user.role);
 
   async function markPaid(invoice) {
     setError('');

@@ -10,7 +10,7 @@ A working client portal built with the MERN stack: MongoDB, Express, React and N
 
 Clients follow their projects, sign off work, message the team, share files and download their documents and invoices. Agency staff see every client and invite new people. No client can see another client's work.
 
-Version 1.1 adds password reset, two-step sign-in with an authenticator app, invitations and private file sharing.
+Version 1.1 added password reset, two-step sign-in with an authenticator app, invitations and private file sharing. Version 1.2 adds sign-up with email confirmation, four roles (Admin, Staff, Client, Customer), admin controls to change access and suspend accounts, a Profile page, and password rules with a live strength meter.
 
 ## Why it exists
 
@@ -20,14 +20,20 @@ So this demo shows that part in the open. Sign in as a client, open **Access che
 
 ## Try it
 
-| Account | What it shows |
-|---|---|
-| Anna Reed, Alder & Finch Accountants | A client who can sign off work |
-| Tom Hale, Alder & Finch Accountants | The same client, read and message only |
-| Priya Shah, Harbour Lane Dental | A different client |
-| Sam Carter, Sample Agency | Staff: every client, the activity log, and branding |
+Create your own account, or open **Try a sample account** on the sign-in page. Each sample fills in the form; then press Sign in. The sample password is shown there.
 
-1. Sign in as Anna and approve the homepage design.
+| Account | Role | What it shows |
+|---|---|---|
+| Lena Brooks, Sample Agency | Admin | Everything, plus changing access and suspending accounts |
+| Sam Carter, Sample Agency | Staff | Every client, the activity log, branding and invitations |
+| Anna Reed, Alder & Finch Accountants | Client | A client who can sign off work |
+| Tom Hale, Alder & Finch Accountants | Client | The same client, read and message only |
+| Priya Shah, Harbour Lane Dental | Client | A different client |
+| Your own account | Customer | Signed in, but no client's work until an admin gives access |
+
+1. Create an account and confirm it from the **Demo inbox**. You're a Customer, so you see a Welcome page and nothing else.
+2. Sign in as Lena, open **People**, and make your account a Client at Alder & Finch. Sign back in as yourself: the projects appear.
+3. Sign in as Anna and approve the homepage design.
 2. Open **Access check** and run the checks.
 3. Switch to Sam and open the **Activity log**. Anna's approval and refused attempts are there.
 4. Still as Sam, open **Branding** and change the name and colour. The whole portal changes for your clients too.
@@ -52,6 +58,10 @@ So this demo shows that part in the open. Sign in as a client, open **Access che
 | Authenticator codes can't be reused | [server/lib/totp.js](server/lib/totp.js), [server/lib/twoFactor.js](server/lib/twoFactor.js) |
 | An invited person gets the role in the invitation, nothing else | `POST /auth/invite/accept` in [server/routes/auth.js](server/routes/auth.js) |
 | Uploads are checked by content, capped, and always downloaded, never shown as a page | [server/routes/uploads.js](server/routes/uploads.js) |
+| The access rule fails closed: a role not on the list sees nothing | `scope()` in [server/lib/access.js](server/lib/access.js) |
+| New sign-ups are Customers; only an admin gives other roles, never to themselves | [server/routes/auth.js](server/routes/auth.js), [server/routes/people.js](server/routes/people.js) |
+| Suspended accounts and old sessions stop at the next request | `loadUser` in [server/middleware/auth.js](server/middleware/auth.js) |
+| One set of password rules for the screens and the server | [shared/password.js](shared/password.js) |
 
 Also in place:
 
@@ -109,6 +119,7 @@ server/lib/workspace.js  creates a visitor's private copy
 server/lib/totp.js     the authenticator app codes
 server/lib/tokens.js   one-time links for resets and invitations
 server/lib/inbox.js    the Demo inbox, where email would be sent
+shared/                rules used by both the server and the screens: roles and passwords
 server/routes/         the API
 server/middleware/     login checks and security
 client/src/            the React app

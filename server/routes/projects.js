@@ -4,13 +4,14 @@ import {
 } from '../models.js';
 import { audit, findOr404, HttpError, scope } from '../lib/access.js';
 import { requireStaff } from '../middleware/auth.js';
+import { isTeam } from '../../shared/roles.js';
 import { decisionBody, deliverableBody, messageBody, milestoneBody, parse } from '../lib/validate.js';
 
 export const projectRoutes = Router();
 
-// Only staff ever see more than one client, so only they need the names attached.
+// Only the agency team ever sees more than one client, so only they need the names attached.
 async function withClientNames(user, records) {
-  if (user.role !== 'staff') return records.map((record) => record.toJSON());
+  if (!isTeam(user.role)) return records.map((record) => record.toJSON());
   const clients = await Client.find({ workspaceId: user.workspaceId });
   const names = new Map(clients.map((client) => [String(client._id), client.name]));
   return records.map((record) => ({ ...record.toJSON(), clientName: names.get(String(record.clientId)) }));

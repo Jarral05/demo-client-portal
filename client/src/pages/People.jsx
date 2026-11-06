@@ -1,7 +1,118 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { api, useApi } from '../api.js';
+import { useSession } from '../session.jsx';
 import { Empty, formatDateTime, Loader, PageTitle } from '../components/ui.jsx';
+import { ROLE_NAMES, ROLES } from '../../../shared/roles.js';
+
+function accessLabel(user) {
+  if (user.role === 'client') return `Client at ${user.clientName}${user.canApprove ? ', signs off work' : ', read and message'}`;
+  return `${ROLES[user.role].label}: ${ROLES[user.role].about.toLowerCase()}`;
+}
+
+// Admins only. The server checks again: hiding this from staff is only politeness.
+function AccessEditor({ user, clients, onDone, onCancel }) {
+  const [role, setRole] = useState(user.role);
+  const [clientId, setClientId] = useState(user.clientId ?? clients[0]?._id ?? '');
+  const [canApprove, setCanApprove] = useState(user.canApprove);
+  const [error, setError] = useState('');
+
+  async function save(event) {
+    event.preventDefault();
+    setError('');
+    try {
+      const body = role === 'client' ? { role, clientId, canApprove } : { role };
+      await api(`/people/${user._id}/access`, { method: 'PUT', body });
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <form className="access-editor" onSubmit={save}>
+      <div className="form-grid">
+        <label>
+          Role
+          <select value={role} onChange={(event) => setRole(event.target.value)}>
+            {ROLE_NAMES.map((name) => <option key={name} value={name}>{ROLES[name].label}</option>)}
+          </select>
+        </label>
+        {role === 'client' && (
+          <label>
+            Client
+            <select value={clientId} onChange={(event) => setClientId(event.target.value)}>
+              {clients.map((client) => <option key={client._id} value={client._id}>{client.name}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
+      <p className="hint">{ROLES[role].about}.</p>
+      {role === 'client' && (
+        <label className="check">
+          <input type="checkbox" checked={canApprove} onChange={(event) => setCanApprove(event.target.checked)} />
+          Can sign off work
+        </label>
+      )}
+      <div className="button-row">
+        <button type="submit" className="button">Save access</button>
+        <button type="button" className="button button-quiet" onClick={onCancel}>Cancel</button>
+      </div>
+      {error && <p className="notice notice-error" role="alert">{error}</p>}
+    </form>
+  );
+}
+
+function PersonRow({ user, clients, isAdmin, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState('');
+
+  async function toggleSuspend() {
+    setError('');
+    try {
+      await api(`/people/${user._id}/${user.suspended ? 'restore' : 'suspend'}`, { method: 'POST' });
+      onChange();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <div className={`person${user.suspended ? ' person-suspended' : ''}`}>
+      <div className="person-main">
+        <div>
+          <strong>{user.name}</strong>{user.isYou && <span className="muted small"> (you)</span>}
+          <div className="small muted">{user.email}</div>
+        </div>
+        <div className="person-access">{accessLabel(user)}</div>
+        <div className="person-tags">
+          {user.suspended && <span className="tag tag-bad">Suspended</span>}
+          {!user.emailVerified && <span className="tag tag-warn">Email not confirmed</span>}
+          {user.role === 'customer' && !user.suspended && <span className="tag tag-info">Waiting for access</span>}
+          {user.twoFactor && <span className="tag tag-good">Two-step on</span>}
+        </div>
+        {isAdmin && !user.isYou && !editing && (
+          <div className="person-actions">
+            <button type="button" className="link-button" onClick={() => setEditing(true)}>Change access</button>
+            <button type="button" className="link-button" onClick={toggleSuspend}>{user.suspended ? 'Restore' : 'Suspend'}</button>
+          </div>
+        )}
+      </div>
+      {editing && (
+        <AccessEditor
+          user={user}
+          clients={clients}
+          onCancel={() => setEditing(false)}
+          onDone={() => {
+            setEditing(false);
+            onChange();
+          }}
+        />
+      )}
+      {error && <p className="notice notice-error" role="alert">{error}</p>}
+    </div>
+  );
+}
 
 function InviteForm({ clients, onChange }) {
   const [form, setForm] = useState({ name: '', email: '', role: 'client', clientId: clients[0]?._id ?? '', canApprove: false });
@@ -72,6 +183,8 @@ function InviteForm({ clients, onChange }) {
 }
 
 export function People() {
+  const { session } = useSession();
+  const isAdmin = session.user.role === 'admin';
   const state = useApi('/people');
 
   async function cancel(id) {
@@ -81,34 +194,20 @@ export function People() {
 
   return (
     <>
-      <PageTitle title="People" intro="Everyone who can sign in, and who is invited. Each person sees only what their role allows." />
+      <PageTitle
+        title="People"
+        intro={isAdmin
+          ? 'Everyone who can sign in. As an admin, you can change anyone\'s access or suspend an account, except your own.'
+          : 'Everyone who can sign in, and who is invited. Only an admin can change roles or suspend accounts.'}
+      />
       <Loader state={state}>
         {({ users, invites, clients }) => (
           <div className="stack">
-            <div className="card table-wrap">
-              <table className="stack-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Email</th>
-                    <th scope="col">Access</th>
-                    <th scope="col">Two-step</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user._id}>
-                      <td>{user.name}</td>
-                      <td data-label="Email">{user.email}</td>
-                      <td data-label="Access">
-                        {user.role === 'staff' ? 'Staff, every client' : `${user.clientName}${user.canApprove ? ', signs off work' : ', read and message'}`}
-                      </td>
-                      <td data-label="Two-step">{user.twoFactor ? <span className="tag tag-good">On</span> : <span className="tag tag-neutral">Off</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <section className="card people">
+              {users.map((user) => (
+                <PersonRow key={user._id} user={user} clients={clients} isAdmin={isAdmin} onChange={state.reload} />
+              ))}
+            </section>
 
             <section className="card">
               <h2>Waiting to join</h2>

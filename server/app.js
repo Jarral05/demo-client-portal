@@ -108,7 +108,7 @@ export function createApp() {
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, _req, res, _next) => {
-    if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
+    if (err instanceof HttpError) return res.status(err.status).json({ error: err.message, field: err.field });
     if (err.type === 'entity.too.large') {
       return res.status(413).json({ error: 'That is too large. Files can be up to 2 MB.' });
     }

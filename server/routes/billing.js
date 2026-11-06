@@ -6,6 +6,7 @@ import { Router } from 'express';
 import { Client, DocumentFile, Invoice, Project, Workspace } from '../models.js';
 import { audit, findOr404, scope } from '../lib/access.js';
 import { requireStaff } from '../middleware/auth.js';
+import { isTeam } from '../../shared/roles.js';
 import { sendDocumentPdf, sendInvoicePdf } from '../lib/pdf.js';
 
 export const billingRoutes = Router();
@@ -28,7 +29,7 @@ billingRoutes.get('/invoices', async (req, res) => {
   res.json(invoices.map((invoice) => ({
     ...invoice.toJSON(),
     // A client already knows their own name. Others are never included.
-    clientName: req.user.role === 'staff' ? names.get(String(invoice.clientId)) : undefined,
+    clientName: isTeam(req.user.role) ? names.get(String(invoice.clientId)) : undefined,
   })));
 });
 

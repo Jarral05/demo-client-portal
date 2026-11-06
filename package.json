@@ -1,6 +1,6 @@
 {
   "name": "demo-client-portal",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "A demo MERN client portal with made-up sample data. Shows login, roles and client-by-client access control.",
   "type": "module",

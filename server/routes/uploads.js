@@ -11,6 +11,7 @@ import express, { Router } from 'express';
 import { Project, UploadedFile } from '../models.js';
 import { audit, findOr404, HttpError } from '../lib/access.js';
 import { uploadLimiter } from '../middleware/security.js';
+import { isTeam } from '../../shared/roles.js';
 import { config } from '../config.js';
 
 export const uploadRoutes = Router();
@@ -105,7 +106,7 @@ uploadRoutes.get('/uploads/:id', async (req, res) => {
 uploadRoutes.delete('/uploads/:id', async (req, res) => {
   const file = await findOr404(UploadedFile, req, req.params.id, 'an uploaded file');
   const isOwner = String(file.uploadedById) === String(req.user._id);
-  if (req.user.role !== 'staff' && !isOwner) {
+  if (!isTeam(req.user.role) && !isOwner) {
     await audit(req, 'access.denied', `Tried to delete "${file.fileName}" uploaded by ${file.uploadedByName}`, file.clientId);
     throw new HttpError(403, 'Only the person who uploaded this, or staff, can delete it.');
   }

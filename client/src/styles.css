@@ -272,10 +272,71 @@ tr:last-child td { border-bottom: 0; }
 .upload-name { color: inherit; overflow-wrap: anywhere; }
 .upload-name:hover { color: var(--brand); }
 
+/* Sign-in and sign-up forms */
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+.auth-form h2 { margin: 0; font-size: 22px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 14px; font-weight: 600; }
+.field-error input { border-color: var(--bad); }
+.field-message { margin: 0; font-size: 13px; color: var(--bad); }
+.field-hint { margin: 0; font-size: 13px; color: var(--ink-soft); }
+.button-wide { width: 100%; padding: 11px 15px; font-size: 15px; text-align: center; text-decoration: none; display: block; }
+.forgot { margin: -6px 0 0; text-align: right; font-size: 14px; }
+.switch { margin: 0; text-align: center; font-size: 14px; }
+.demo-inbox-link { margin-top: 16px; }
+.roles-list { margin: 0; padding-left: 20px; max-width: 52ch; }
+.roles-list li { margin-bottom: 6px; }
+
+/* Password box with Show/Hide */
+.password-box { position: relative; }
+.password-box input { padding-right: 86px; }
+.password-toggle {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--ink-soft);
+  font: 500 13px var(--font-body); cursor: pointer;
+}
+.password-toggle:hover { background: #ECEEE9; color: var(--ink); }
+
+/* Strength meter: red, amber, green, deep green */
+.strength { margin-top: -6px; }
+.strength-bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px; }
+.strength-bars span { height: 5px; border-radius: 3px; background: #E2E5DF; }
+.strength-0 .on, .strength-1 .on { background: var(--bad); }
+.strength-2 .on { background: #C08A1E; }
+.strength-3 .on, .strength-4 .on { background: var(--good); }
+.strength-label { margin: 0; font-size: 13px; }
+.strength-tip { margin: 2px 0 0; font-size: 13px; color: var(--ink-soft); }
+
+/* Only bots see this box, so it's moved off the screen rather than hidden in a way bots notice. */
+.trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+/* Sample accounts, folded away under the form */
+.samples { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+.samples summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--brand); }
+.samples[open] summary { margin-bottom: 10px; }
+.samples .hint { margin-bottom: 10px; }
+
+/* People */
+.people { padding: 0; }
+.person { padding: 14px 18px; border-bottom: 1px solid #ECEEE9; }
+.person:last-child { border-bottom: 0; }
+.person-suspended { background: #FBF6F6; }
+/* Fixed widths for the last two columns, so every row lines up even when it has no buttons. */
+.person-main { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(200px, 1.5fr) 160px 170px; gap: 8px 18px; align-items: center; }
+.person-access { font-size: 14px; color: var(--ink-soft); }
+.person-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.person-actions { display: flex; gap: 14px; justify-content: flex-end; white-space: nowrap; font-size: 14px; }
+.access-editor { margin-top: 12px; padding: 14px; background: var(--bone); border-radius: 10px; display: flex; flex-direction: column; gap: 10px; }
+
 /* Tablets and phones */
 @media (max-width: 960px) {
   .columns, .login { grid-template-columns: minmax(0, 1fr); }
+  .person-main { grid-template-columns: minmax(0, 1fr); }
+  .person-actions { justify-content: flex-start; }
   .login { gap: 28px; padding-top: 28px; }
+  /* On phones the form comes first, so nobody scrolls past the intro to find it. */
+  .login-panel { order: -1; }
   .login-intro h1 { font-size: 30px; }
 }
 

@@ -3,20 +3,31 @@
 // The rule: being logged in is not enough. Every read and write goes through
 // scope(), so a client's query can only ever match that client's records.
 import { AuditEvent } from '../models.js';
+import { isTeam } from '../../shared/roles.js';
 
+// field names the form box the message belongs to, so the screen can show it there.
 export class HttpError extends Error {
-  constructor(status, message) {
+  constructor(status, message, field) {
     super(message);
     this.status = status;
+    this.field = field;
   }
 }
 
 // The database filter for "records this user may touch".
-// Staff see every client in their workspace. A client user sees one client only.
+//
+// It works like a guest list, not a list of banned people: only the roles named
+// here get any records at all. Admin and staff see every client in their copy,
+// and a client user sees one client. Anyone else, such as a new customer, is
+// refused, so a forgotten role can never see everything by accident.
 export function scope(user, extra = {}) {
   const filter = { workspaceId: user.workspaceId, ...extra };
-  if (user.role === 'client') filter.clientId = user.clientId;
-  return filter;
+  if (isTeam(user.role)) return filter;
+  if (user.role === 'client' && user.clientId) {
+    filter.clientId = user.clientId;
+    return filter;
+  }
+  throw new HttpError(403, "Your account doesn't have access to any client's work yet.");
 }
 
 export function audit(req, action, summary, clientId) {
